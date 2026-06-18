@@ -39,12 +39,56 @@ const isRouteActive = (patterns) => {
         </li>
 
         <li>
+          <NavLink :href="route('pos.index')" :active="isRouteActive(['pos', 'pos.*'])"
+            class="flex items-center p-3 rounded-lg hover:bg-gray-50 transition-colors"
+            :class="isCollapsed ? 'justify-center px-2' : 'px-3'">
+            <div class="flex items-center">
+              <i class="fa fa-shopping-bag mr-2" style="font-size:20px"></i>
+              <span v-if="!isCollapsed" class="whitespace-nowrap">Sale</span>
+            </div>
+          </NavLink>
+        </li>
+
+        <li>
+          <NavLink :href="route('purchases.index')" :active="isRouteActive(['purchases', 'purchases.*'])"
+            class="flex items-center p-3 rounded-lg hover:bg-gray-50 transition-colors"
+            :class="isCollapsed ? 'justify-center px-2' : 'px-3'">
+            <div class="flex items-center">
+              <i class="fa-solid fa-user-gear mr-2" style="font-size:20px"></i>
+              <span v-if="!isCollapsed" class="whitespace-nowrap">Purchases</span>
+            </div>
+          </NavLink>
+        </li>
+
+        <li>
           <NavLink :href="route('products.index')" :active="isRouteActive(['products', 'products.*'])"
             class="flex items-center p-3 rounded-lg hover:bg-gray-50 transition-colors"
             :class="isCollapsed ? 'justify-center px-2' : 'px-3'">
             <div class="flex items-center">
               <i class="fa-solid fa-store mr-2" style="font-size:20px"></i>
               <span v-if="!isCollapsed" class="whitespace-nowrap">Products</span>
+            </div>
+          </NavLink>
+        </li>
+
+        <li>
+          <NavLink :href="route('customers.index')" :active="isRouteActive(['customers', 'customers.*'])"
+            class="flex items-center p-3 rounded-lg hover:bg-gray-50 transition-colors"
+            :class="isCollapsed ? 'justify-center px-2' : 'px-3'">
+            <div class="flex items-center">
+              <i class="fa-solid fa-users mr-2" style="font-size:20px"></i>
+              <span v-if="!isCollapsed" class="whitespace-nowrap">Customers</span>
+            </div>
+          </NavLink>
+        </li>
+
+        <li>
+          <NavLink :href="route('suppliers.index')" :active="isRouteActive(['suppliers', 'suppliers.*'])"
+            class="flex items-center p-3 rounded-lg hover:bg-gray-50 transition-colors"
+            :class="isCollapsed ? 'justify-center px-2' : 'px-3'">
+            <div class="flex items-center">
+              <i class="fa-solid fa-user-gear mr-2" style="font-size:20px"></i>
+              <span v-if="!isCollapsed" class="whitespace-nowrap">Suppliers</span>
             </div>
           </NavLink>
         </li>
@@ -82,27 +126,29 @@ const isRouteActive = (patterns) => {
           </NavLink>
         </li>
         
+        
         <li>
-          <NavLink :href="route('customers.index')" :active="isRouteActive(['customers', 'customers.*'])"
+          <NavLink :href="route('pos.report')" :active="isRouteActive(['pos.report'])"
             class="flex items-center p-3 rounded-lg hover:bg-gray-50 transition-colors"
             :class="isCollapsed ? 'justify-center px-2' : 'px-3'">
             <div class="flex items-center">
-              <i class="fa-solid fa-users mr-2" style="font-size:20px"></i>
-              <span v-if="!isCollapsed" class="whitespace-nowrap">Customers</span>
+              <i class="fa-solid fa-chart-column mr-2" style="font-size:20px"></i>
+              <span v-if="!isCollapsed" class="whitespace-nowrap">Reports</span>
             </div>
           </NavLink>
         </li>
-
+        
         <li>
-          <NavLink :href="route('suppliers.index')" :active="isRouteActive(['suppliers', 'suppliers.*'])"
+          <NavLink
             class="flex items-center p-3 rounded-lg hover:bg-gray-50 transition-colors"
             :class="isCollapsed ? 'justify-center px-2' : 'px-3'">
             <div class="flex items-center">
-              <i class="fa-solid fa-user-gear mr-2" style="font-size:20px"></i>
-              <span v-if="!isCollapsed" class="whitespace-nowrap">Suppliers</span>
+              <i class="fa-solid fa-store mr-2" style="font-size:20px"></i>
+              <span v-if="!isCollapsed" class="whitespace-nowrap">Settings</span>
             </div>
           </NavLink>
         </li>
+        
 
 
 

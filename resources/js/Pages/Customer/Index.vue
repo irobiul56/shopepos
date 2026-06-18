@@ -506,6 +506,7 @@ const stats = computed(() => {
                                     class="hover:bg-gray-50 transition group"
                                 >
                                     <td class="px-4 py-3">
+                                        
                                         <div class="flex items-center gap-3">
                                             <div class="flex-shrink-0 h-10 w-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-semibold text-sm">
                                                 {{ customer.name.charAt(0).toUpperCase() }}

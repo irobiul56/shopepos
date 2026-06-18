@@ -365,7 +365,7 @@ onMounted(() => {
             </div>
         </Transition>
         
-        <div class="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50/30 px-4 py-6">
+        <div class="min-h-screen w-full bg-gradient-to-br from-gray-50 to-blue-50/30 px-4 py-6">
             <div class="max-w-7xl mx-auto">
                 <!-- Header -->
                 <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-4 no-print">

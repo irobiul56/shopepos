@@ -29,6 +29,8 @@ return new class extends Migration
             ])->default('other');
             $table->string('logo')->nullable();
             $table->string('tin_number')->nullable();
+            $table->string('currency_symbol')->default('$');
+            $table->string('currency_code')->default('USD');
             $table->boolean('is_active')->default(true);
             $table->timestamps();
         });

@@ -150,55 +150,138 @@ class PurchaseController extends Controller
             ->with('success', 'Purchase created successfully!');
     }
 
-
-    public function destroy(Purchase $purchase)
+    public function show(Purchase $purchase)
 {
     $this->authorizeShop($purchase);
     
-    // Check if purchase can be deleted (only unpaid or partial)
-    if ($purchase->payment_status === 'paid') {
-        if (request()->wantsJson()) {
-            return response()->json([
-                'error' => 'Cannot delete paid purchase!'
-            ], 422);
-        }
-        return redirect()->route('purchases.index')
-            ->with('error', 'Cannot delete paid purchase!');
+    $purchase->load(['supplier', 'user', 'purchaseDetails.product']);
+    
+    if (request()->wantsJson()) {
+        return response()->json([
+            'purchase' => $purchase
+        ]);
     }
     
-    try {
-        // Restore product stock
-        foreach ($purchase->purchaseDetails as $detail) {
-            $product = $detail->product;
-            $product->decrement('stock_quantity', $detail->quantity);
-        }
+    return Inertia::render('Purchase/Show', [
+        'purchase' => $purchase
+    ]);
+}
+
+    
+    public function destroy(Purchase $purchase)
+    {
         
-        // Update supplier due
-        $supplier = $purchase->supplier;
-        $supplier->decrement('total_due', $purchase->due_amount);
-        
-        // Delete the purchase
-        $purchase->delete();
-        
-        if (request()->wantsJson()) {
-            return response()->json([
-                'success' => true,
-                'message' => 'Purchase deleted successfully!'
-            ]);
-        }
-        
-        return redirect()->route('purchases.index')
-            ->with('success', 'Purchase deleted successfully!');
+        $this->authorizeShop($purchase);
+            // Check if purchase can be deleted (only unpaid or partial)
+            if ($purchase->payment_status === 'paid') {
+                return redirect()->route('purchases.index')
+                    ->with('error', 'Cannot delete paid purchase!');
+            }
             
-    } catch (\Exception $e) {
-        if (request()->wantsJson()) {
-            return response()->json([
-                'error' => 'Failed to delete purchase: ' . $e->getMessage()
-            ], 500);
+            // Restore product stock
+            foreach ($purchase->purchaseDetails as $detail) {
+                $product = $detail->product;
+                $product->decrement('stock_quantity', $detail->quantity);
+            }
+            
+            // Update supplier due
+            $supplier = $purchase->supplier;
+            $supplier->decrement('total_due', $purchase->due_amount);
+            
+            $purchase->delete();
+            
+            return redirect()->route('purchases.index')
+                ->with('success', 'Purchase deleted successfully!');
+        }
+
+        private function authorizeShop($purchase)
+        {
+            if ($purchase->shop_id !== auth()->user()->shop_id) {
+                abort(403, 'Unauthorized action.');
+            }
+        }
+
+        // Get purchase data for printing
+            public function printData(Purchase $purchase)
+            {
+                $this->authorizeShop($purchase);
+                
+                $purchase->load(['supplier', 'user', 'purchaseDetails.product.unit']);
+                
+                return response()->json([
+                    'purchase' => $purchase
+                ]);
+            }
+
+         public function reportData(Request $request)
+{
+    try {
+        $query = Purchase::with(['supplier', 'user', 'purchaseDetails.product.unit'])
+            ->where('shop_id', auth()->user()->shop_id);
+        
+        // Apply filters (same as before)
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('invoice_no', 'like', "%{$search}%")
+                  ->orWhereHas('supplier', function($q) use ($search) {
+                      $q->where('name', 'like', "%{$search}%")
+                        ->orWhere('phone', 'like', "%{$search}%");
+                  });
+            });
         }
         
-        return redirect()->route('purchases.index')
-            ->with('error', 'Failed to delete purchase: ' . $e->getMessage());
+        if ($request->filled('supplier_id')) {
+            $query->where('supplier_id', $request->supplier_id);
+        }
+        
+        if ($request->filled('payment_status')) {
+            $query->where('payment_status', $request->payment_status);
+        }
+        
+        if ($request->filled('date_from')) {
+            $query->whereDate('purchase_date', '>=', $request->date_from);
+        }
+        
+        if ($request->filled('date_to')) {
+            $query->whereDate('purchase_date', '<=', $request->date_to);
+        }
+        
+        $purchases = $query->orderBy('purchase_date', 'desc')->get();
+        
+        // Get supplier name if filtered
+        $supplierName = null;
+        if ($request->filled('supplier_id')) {
+            $supplier = Supplier::find($request->supplier_id);
+            $supplierName = $supplier ? $supplier->name : null;
+        }
+        
+        $summary = [
+            'total_purchases' => $purchases->count(),
+            'total_amount' => $purchases->sum('total_amount'),
+            'total_paid' => $purchases->sum('paid_amount'),
+            'total_due' => $purchases->sum('due_amount'),
+        ];
+        
+        return response()->json([
+            'success' => true,
+            'purchases' => $purchases,
+            'summary' => $summary,
+            'shop_name' => auth()->user()->shop->name ?? auth()->user()->name . "'s Shop",
+            'generated_by' => auth()->user()->name,
+            'date_from' => $request->date_from,
+            'date_to' => $request->date_to,
+            'supplier_name' => $supplierName,
+            'payment_status' => $request->payment_status,
+            'search' => $request->search,
+        ]);
+        
+    } catch (\Exception $e) {
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to fetch report data: ' . $e->getMessage()
+        ], 500);
     }
 }
 }

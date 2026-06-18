@@ -4,16 +4,15 @@ namespace App\Http\Controllers;
 
 use App\Models\Customer;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 
 class CustomerController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
     public function index(Request $request)
     {
-        $query = Customer::where('shop_id', auth()->user()->shop_id);
+        $query = Customer::where('shop_id', Auth::user()->shop_id);
         
         // Search filter
         if ($request->filled('search')) {
@@ -28,7 +27,11 @@ class CustomerController extends Controller
         
         // Status filter
         if ($request->filled('status')) {
-            $query->where('is_active', $request->status === 'active');
+            if ($request->status === 'active') {
+                $query->where('is_active', true);
+            } elseif ($request->status === 'inactive') {
+                $query->where('is_active', false);
+            }
         }
         
         // Loyalty level filter
@@ -49,152 +52,198 @@ class CustomerController extends Controller
             }
         }
         
-        $customers = $query->orderBy('created_at', 'desc')->paginate(10);
+        // Order by
+        $query->orderBy('name');
+        
+        // Paginate results (10 per page)
+        $customers = $query->paginate(10);
+        
+        // Add loyalty level to each customer
+        $customers->getCollection()->transform(function ($customer) {
+            $customer->loyalty_level = $this->getLoyaltyLevel($customer->total_purchases);
+            return $customer;
+        });
         
         return Inertia::render('Customer/Index', [
             'customers' => $customers,
         ]);
     }
-
-     public function store(Request $request)
+    
+    public function store(Request $request)
     {
-
-    // dd($request->all());
         $request->validate([
             'name' => 'required|string|max:255',
-            'phone' => 'required|string|max:20|unique:customers,phone,NULL,id,shop_id,' . auth()->user()->shop_id,
-            'email' => 'nullable|email|max:255|unique:customers,email,NULL,id,shop_id,' . auth()->user()->shop_id,
-            'address' => 'nullable|string',
-            'loyalty_card_number' => 'nullable|string|max:50|unique:customers,loyalty_card_number,NULL,id,shop_id,' . auth()->user()->shop_id,
-            'is_active' => 'boolean'
+            'phone' => 'required|string|max:20|unique:customers,phone',
+            'email' => 'nullable|email|max:255|unique:customers,email',
+            'address' => 'nullable|string|max:500',
+            'loyalty_card_number' => 'nullable|string|max:50|unique:customers,loyalty_card_number',
+            'is_active' => 'nullable|boolean'
         ]);
-
-        Customer::create([
-            'shop_id' => auth()->user()->shop_id,
-            'name' => $request->name,
-            'phone' => $request->phone,
-            'email' => $request->email,
-            'address' => $request->address,
-            'loyalty_card_number' => $request->loyalty_card_number,
-            'is_active' => $request->is_active ?? true,
-            'total_purchases' => 0,
-            'total_due' => 0,
-        ]);
-
-        if ($request->wantsJson()) {
-            return response()->json([
-                'success' => true,
-                'message' => 'Customer created successfully!'
+        
+        try {
+            // Generate unique loyalty card number if not provided
+            $loyaltyCardNumber = $request->loyalty_card_number ?? $this->generateLoyaltyCardNumber();
+            
+            $customer = Customer::create([
+                'shop_id' => Auth::user()->shop_id,
+                'name' => $request->name,
+                'phone' => $request->phone,
+                'email' => $request->email,
+                'address' => $request->address,
+                'loyalty_card_number' => $loyaltyCardNumber,
+                'total_purchases' => 0,
+                'total_due' => 0,
+                'is_active' => $request->is_active ?? true
+            ]);
+            
+            return redirect()->route('customers.index')->with([
+                'success' => 'Customer added successfully!'
+            ]);
+            
+        } catch (\Exception $e) {
+            return back()->withErrors([
+                'error' => 'Failed to add customer: ' . $e->getMessage()
             ]);
         }
-
-        return redirect()->route('customers.index')
-            ->with('success', 'Customer created successfully!');
     }
     
-      // Update customer
-    public function update(Request $request, Customer $customer)
+    public function update(Request $request, $id)
     {
-        $this->authorizeShop($customer);
-
+        $customer = Customer::where('shop_id', Auth::user()->shop_id)
+            ->findOrFail($id);
+            
         $request->validate([
             'name' => 'required|string|max:255',
-            'phone' => 'required|string|max:20|unique:customers,phone,' . $customer->id . ',id,shop_id,' . auth()->user()->shop_id,
-            'email' => 'nullable|email|max:255|unique:customers,email,' . $customer->id . ',id,shop_id,' . auth()->user()->shop_id,
-            'address' => 'nullable|string',
-            'loyalty_card_number' => 'nullable|string|max:50|unique:customers,loyalty_card_number,' . $customer->id . ',id,shop_id,' . auth()->user()->shop_id,
-            'is_active' => 'boolean'
+            'phone' => 'required|string|max:20|unique:customers,phone,' . $id,
+            'email' => 'nullable|email|max:255|unique:customers,email,' . $id,
+            'address' => 'nullable|string|max:500',
+            'loyalty_card_number' => 'nullable|string|max:50|unique:customers,loyalty_card_number,' . $id,
+            'is_active' => 'nullable|boolean'
         ]);
-
-        $customer->update($request->all());
-
-        if ($request->wantsJson()) {
-            return response()->json([
-                'success' => true,
-                'message' => 'Customer updated successfully!',
-                'customer' => $customer
+        
+        try {
+            $customer->update([
+                'name' => $request->name,
+                'phone' => $request->phone,
+                'email' => $request->email,
+                'address' => $request->address,
+                'loyalty_card_number' => $request->loyalty_card_number ?? $customer->loyalty_card_number,
+                'is_active' => $request->is_active ?? $customer->is_active
+            ]);
+            
+            return redirect()->route('customers.index')->with([
+                'success' => 'Customer updated successfully!'
+            ]);
+            
+        } catch (\Exception $e) {
+            return back()->withErrors([
+                'error' => 'Failed to update customer: ' . $e->getMessage()
             ]);
         }
-
-        return redirect()->route('customers.index')
-            ->with('success', 'Customer updated successfully!');
-    }
-
-    public function toggleStatus(Customer $customer)
-    {
-        $this->authorizeShop($customer);
-        
-        $customer->update(['is_active' => !$customer->is_active]);
-        
-        return redirect()->route('customers.index')
-            ->with('success', 'Customer status updated successfully!');
     }
     
-    // Delete customer
-    public function destroy(Customer $customer)
+    public function destroy($id)
     {
-        // Check authorization
-        $this->authorizeShop($customer);
-        
-        // Check if customer has any orders/invoices
-        if ($customer->sales()->count() > 0) {
-            if (request()->wantsJson()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Cannot delete customer with purchase history! Please delete associated orders first.',
-                    'has_orders' => true
-                ], 422);
-            }
+        $customer = Customer::where('shop_id', Auth::user()->shop_id)
+            ->findOrFail($id);
             
-            return redirect()->route('customers.index')
-                ->with('error', 'Cannot delete customer with purchase history! Please delete associated orders first.');
-        }
-        
-        // Check if customer has any due amount
-        if ($customer->total_due > 0) {
-            if (request()->wantsJson()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Cannot delete customer with due amount! Please clear the due first.',
-                    'has_due' => true,
-                    'due_amount' => $customer->total_due
-                ], 422);
-            }
-            
-            return redirect()->route('customers.index')
-                ->with('error', 'Cannot delete customer with due amount! Please clear the due first.');
-        }
-        
-        // Store customer info for logging (optional)
-        $customerInfo = [
-            'id' => $customer->id,
-            'name' => $customer->name,
-            'phone' => $customer->phone,
-            'email' => $customer->email
-        ];
-        
-        // Delete the customer
-        $customer->delete();
-        
-        // You can add logging here
-        // \Log::info('Customer deleted: ', $customerInfo);
-        
-        if (request()->wantsJson()) {
-            return response()->json([
-                'success' => true,
-                'message' => 'Customer deleted successfully!',
-                'deleted_customer' => $customerInfo
+        // Check if customer has purchases
+        if ($customer->sales()->exists()) {
+            return back()->withErrors([
+                'error' => 'Cannot delete customer with purchase history.'
             ]);
         }
-        
-        return redirect()->route('customers.index')
-            ->with('success', 'Customer deleted successfully!');
+            
+        try {
+            $customer->delete();
+            
+            return redirect()->route('customers.index')->with([
+                'success' => 'Customer deleted successfully!'
+            ]);
+            
+        } catch (\Exception $e) {
+            return back()->withErrors([
+                'error' => 'Failed to delete customer: ' . $e->getMessage()
+            ]);
+        }
     }
     
-    private function authorizeShop($customer)
+    public function show($id)
     {
-        if ($customer->shop_id !== auth()->user()->shop_id) {
-            abort(403, 'Unauthorized action.');
+        $customer = Customer::where('shop_id', Auth::user()->shop_id)
+            ->with(['sales' => function($query) {
+                $query->orderBy('created_at', 'desc')->limit(10);
+            }])
+            ->findOrFail($id);
+            
+        return Inertia::render('Customer/Show', [
+            'customer' => $customer,
+        ]);
+    }
+    
+    public function toggleStatus($id)
+    {
+        $customer = Customer::where('shop_id', Auth::user()->shop_id)
+            ->findOrFail($id);
+            
+        try {
+            $customer->update([
+                'is_active' => !$customer->is_active
+            ]);
+            
+            $status = $customer->is_active ? 'activated' : 'deactivated';
+            
+            return redirect()->route('customers.index')->with([
+                'success' => "Customer {$status} successfully!"
+            ]);
+            
+        } catch (\Exception $e) {
+            return back()->withErrors([
+                'error' => 'Failed to toggle customer status: ' . $e->getMessage()
+            ]);
         }
+    }
+    
+    public function updateLoyaltyCard($id)
+    {
+        $customer = Customer::where('shop_id', Auth::user()->shop_id)
+            ->findOrFail($id);
+            
+        try {
+            $newCardNumber = $this->generateLoyaltyCardNumber();
+            $customer->update([
+                'loyalty_card_number' => $newCardNumber
+            ]);
+            
+            return redirect()->route('customers.index')->with([
+                'success' => 'Loyalty card number updated successfully!'
+            ]);
+            
+        } catch (\Exception $e) {
+            return back()->withErrors([
+                'error' => 'Failed to update loyalty card: ' . $e->getMessage()
+            ]);
+        }
+    }
+    
+    private function generateLoyaltyCardNumber()
+    {
+        $prefix = 'LYL';
+        $number = $prefix . strtoupper(Str::random(8));
+        
+        // Check if exists and regenerate if needed
+        while (Customer::where('loyalty_card_number', $number)->exists()) {
+            $number = $prefix . strtoupper(Str::random(8));
+        }
+        
+        return $number;
+    }
+    
+    private function getLoyaltyLevel($totalPurchases)
+    {
+        if ($totalPurchases >= 50000) return 'Platinum';
+        if ($totalPurchases >= 25000) return 'Gold';
+        if ($totalPurchases >= 10000) return 'Silver';
+        return 'Regular';
     }
 }
