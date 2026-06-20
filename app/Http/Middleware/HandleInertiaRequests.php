@@ -4,36 +4,53 @@ namespace App\Http\Middleware;
 
 use Illuminate\Http\Request;
 use Inertia\Middleware;
+use Tighten\Ziggy\Ziggy as TightenZiggy;
 
 class HandleInertiaRequests extends Middleware
 {
-    /**
-     * The root template that is loaded on the first page visit.
-     *
-     * @var string
-     */
     protected $rootView = 'app';
 
-    /**
-     * Determine the current asset version.
-     */
     public function version(Request $request): ?string
     {
         return parent::version($request);
     }
 
-    /**
-     * Define the props that are shared by default.
-     *
-     * @return array<string, mixed>
-     */
     public function share(Request $request): array
     {
-        return [
-            ...parent::share($request),
+        $user = $request->user();
+        
+        return array_merge(parent::share($request), [
             'auth' => [
-                'user' => $request->user(),
+                'user' => $user ? [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'shop_id' => $user->shop_id,
+                    'role' => $user->role,
+                    // Load shop relationship
+                    'shop' => $user->shop ? [
+                        'id' => $user->shop->id,
+                        'name' => $user->shop->name,
+                        'owner_name' => $user->shop->owner_name,
+                        'logo' => $user->shop->logo,
+                        'address' => $user->shop->address,
+                        'phone' => $user->shop->phone,
+                        'email' => $user->shop->email,
+                    ] : null,
+                ] : null,
             ],
-        ];
+            'ziggy' => function () use ($request) {
+                return array_merge((new TightenZiggy())->toArray(), [
+                    'location' => $request->url(),
+                ]);
+            },
+            'flash' => [
+                'success' => fn () => $request->session()->get('success'),
+                'error' => fn () => $request->session()->get('error'),
+                'sale_id' => fn () => $request->session()->get('sale_id'),
+                'invoice_data' => fn () => $request->session()->get('invoice_data'),
+                'updated_products' => fn () => $request->session()->get('updated_products'),
+            ],
+        ]);
     }
 }

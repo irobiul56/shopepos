@@ -14,6 +14,7 @@ return new class extends Migration
         Schema::create('payments', function (Blueprint $table) {
             $table->id();
             $table->foreignId('shop_id')->constrained()->onDelete('cascade');
+            $table->foreignId('sale_id')->constrained()->onDelete('cascade');
             $table->morphs('payable'); // sale, purchase এর জন্য polymorphic
             $table->foreignId('user_id')->constrained();
             $table->decimal('amount', 12, 2);

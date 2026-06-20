@@ -9,12 +9,20 @@ class Shop extends Model
 {
     protected $fillable = [
         'name',
-        'address',
-        'phone',
+        'owner_name',
         'email',
+        'phone',
+        'address',
+        'shop_type',
         'logo',
-        'tax_number',
-        'status',
+        'tin_number',
+        'currency_symbol',
+        'currency_code',
+        'is_active',
+    ];
+
+    protected $casts = [
+        'is_active' => 'boolean',
     ];
 
     public function users(): HasMany
@@ -30,5 +38,10 @@ class Shop extends Model
     public function products(): HasMany
     {
         return $this->hasMany(Product::class);
+    }
+
+    public function customers(): HasMany
+    {
+        return $this->hasMany(Customer::class);
     }
 }

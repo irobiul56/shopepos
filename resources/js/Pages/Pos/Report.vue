@@ -57,19 +57,18 @@ const summary = computed(() => {
     const filtered = filteredSales.value;
     const total = filtered.reduce((sum, sale) => sum + Number(sale.total_amount || 0), 0);
     const count = filtered.length;
-    const profit = filtered.reduce((sum, sale) => sum + Number(sale.profit || 0), 0);
     
     return {
         total_sales: count,
         total_amount: total,
-        total_profit: profit,
+        total_profit: totalProfit.value,
         average_sale: count > 0 ? total / count : 0
     };
 });
 
 // Format currency
 const formatCurrency = (amount) => {
-    return 'BDT ' + Number(amount).toFixed(2);
+    return 'Tk ' + Number(amount).toFixed(2);
 };
 
 // Format date
@@ -157,7 +156,7 @@ const exportReport = () => {
     window.open(url, '_blank');
 };
 
-// Print report - One row summary
+// Print report - Professional clean design with serial numbers and page numbers
 const printReport = () => {
     const printContent = document.getElementById('report-print-content');
     if (!printContent) {
@@ -165,7 +164,7 @@ const printReport = () => {
         return;
     }
     
-    const printWindow = window.open('', '_blank', 'width=1000,height=800');
+    const printWindow = window.open('', '_blank', 'width=1100,height=900');
     if (!printWindow) {
         alert('Please allow popups for printing');
         return;
@@ -188,12 +187,61 @@ const printReport = () => {
     if (filters.value.start_date) filterInfo.push(`From: ${filters.value.start_date}`);
     if (filters.value.end_date) filterInfo.push(`To: ${filters.value.end_date}`);
     if (filters.value.payment_method && filters.value.payment_method !== 'all') {
-        filterInfo.push(`Payment: ${filters.value.payment_method}`);
+        filterInfo.push(`Payment: ${filters.value.payment_method.charAt(0).toUpperCase() + filters.value.payment_method.slice(1)}`);
     }
     if (filters.value.sale_type && filters.value.sale_type !== 'all') {
-        filterInfo.push(`Type: ${filters.value.sale_type}`);
+        filterInfo.push(`Type: ${filters.value.sale_type.charAt(0).toUpperCase() + filters.value.sale_type.slice(1)}`);
     }
     const filterText = filterInfo.length > 0 ? filterInfo.join(' | ') : 'All Sales';
+    
+    // Get sales data from the current view
+    const salesData = paginatedSales.value;
+    const startSerial = (currentPage.value - 1) * itemsPerPage.value + 1;
+    
+    // Build table rows with serial numbers
+    let tableRows = '';
+    salesData.forEach((sale, index) => {
+        const serial = startSerial + index;
+        const statusClass = sale.payment_status === 'paid' ? 'status-paid' : 
+                           sale.payment_status === 'partial' ? 'status-partial' : 'status-unpaid';
+        const statusDisplay = sale.payment_status.charAt(0).toUpperCase() + sale.payment_status.slice(1);
+        const typeDisplay = sale.sale_type?.charAt(0).toUpperCase() + sale.sale_type?.slice(1) || 'N/A';
+        const customerName = sale.customer?.name || 'Walk-in Customer';
+        const customerPhone = sale.customer?.phone || '—';
+        
+        tableRows += `
+            <tr>
+                <td class="text-center" style="font-weight:500;color:#6b7280;">${serial}</td>
+                <td class="text-center"><strong>${sale.invoice_no || 'N/A'}</strong></td>
+                <td class="text-center">${formatDate(sale.sale_date)}</td>
+                <td>
+                    <div><strong>${customerName}</strong></div>
+                    <div style="font-size:7.5px;color:#9ca3af;">${customerPhone}</div>
+                </td>
+                <td class="text-center"><span style="background:${sale.sale_type === 'retail' ? '#dbeafe' : '#f3e8ff'};padding:2px 10px;border-radius:12px;font-size:7.5px;font-weight:600;color:${sale.sale_type === 'retail' ? '#1e40af' : '#6b21a8'};">${typeDisplay}</span></td>
+                <td class="text-right"><strong>${formatCurrency(sale.total_amount)}</strong></td>
+                <td class="text-right" style="color:#059669;">${formatCurrency(sale.paid_amount)}</td>
+                <td class="text-right" style="color:${sale.due_amount > 0 ? '#d97706' : '#9ca3af'};">${formatCurrency(sale.due_amount)}</td>
+                <td class="text-center"><span class="${statusClass}">${statusDisplay}</span></td>
+            </tr>
+        `;
+    });
+    
+    // If no data
+    if (salesData.length === 0) {
+        tableRows = `
+            <tr>
+                <td colspan="9" style="text-align:center;padding:40px 20px;color:#9ca3af;">
+                    <div style="font-size:20px;margin-bottom:10px;">📋</div>
+                    <div style="font-size:14px;font-weight:500;">No sales found</div>
+                    <div style="font-size:11px;color:#d1d5db;">Try adjusting your filters</div>
+                </td>
+            </tr>
+        `;
+    }
+    
+    // Calculate total pages
+    const totalPages = Math.ceil(filteredSales.value.length / itemsPerPage.value);
     
     printWindow.document.write(`
         <!DOCTYPE html>
@@ -203,187 +251,334 @@ const printReport = () => {
             <style>
                 * { margin: 0; padding: 0; box-sizing: border-box; }
                 body { 
-                    font-family: 'Courier New', Courier, monospace; 
-                    font-size: 11px; 
-                    padding: 15px; 
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+                    font-size: 10px; 
+                    padding: 20px 25px; 
                     background: white;
-                    color: #000;
-                }
-                .report-container { 
-                    max-width: 1100px; 
-                    margin: 0 auto; 
-                }
-                .text-center { text-align: center; }
-                .text-right { text-align: right; }
-                .text-left { text-align: left; }
-                .fw-bold { font-weight: bold; }
-                .mb-5 { margin-bottom: 5px; }
-                .mb-10 { margin-bottom: 10px; }
-                .mb-15 { margin-bottom: 15px; }
-                .mt-5 { margin-top: 5px; }
-                .mt-10 { margin-top: 10px; }
-                .pt-5 { padding-top: 5px; }
-                .pb-5 { padding-bottom: 5px; }
-                .border-bottom { border-bottom: 1px solid #000; }
-                .border-bottom-dashed { border-bottom: 1px dashed #999; }
-                .border-top { border-top: 2px solid #000; }
-                
-                /* Shop Header */
-                .shop-header { 
-                    text-align: center;
-                    border-bottom: 2px solid #000; 
-                    padding-bottom: 8px; 
-                    margin-bottom: 10px;
-                }
-                .shop-name { 
-                    font-size: 20px; 
-                    font-weight: bold; 
-                    margin-bottom: 2px;
-                }
-                .shop-details {
-                    font-size: 10px;
-                    color: #333;
+                    color: #1f2937;
                     line-height: 1.5;
                 }
-                .shop-details span {
-                    margin: 0 5px;
+                .report-container { 
+                    max-width: 1200px; 
+                    margin: 0 auto; 
                 }
                 
-                .report-title { 
-                    font-size: 14px; 
-                    font-weight: bold; 
-                    margin: 5px 0;
+                /* Header Styles */
+                .header-section {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: flex-start;
+                    border-bottom: 3px double #1f2937;
+                    padding-bottom: 15px;
+                    margin-bottom: 15px;
                 }
-                .filter-info {
+                .shop-info h1 {
+                    font-size: 22px;
+                    font-weight: 700;
+                    color: #1f2937;
+                    letter-spacing: -0.5px;
+                }
+                .shop-info .address {
                     font-size: 9px;
-                    color: #333;
-                    margin-bottom: 8px;
-                    padding: 3px 8px;
-                    background: #f5f5f5;
-                    border: 1px solid #ddd;
-                    text-align: center;
+                    color: #4b5563;
+                    margin-top: 3px;
                 }
-                
-                /* Summary Row - One line with columns */
-                .summary-row {
-                    display: table;
-                    width: 100%;
-                    border-collapse: collapse;
-                    margin-bottom: 10px;
-                    border: 1px solid #000;
-                }
-                .summary-row .summary-item {
-                    display: table-cell;
-                    padding: 6px 8px;
-                    text-align: center;
-                    border-right: 1px solid #000;
-                    vertical-align: middle;
-                }
-                .summary-row .summary-item:last-child {
-                    border-right: none;
-                }
-                .summary-row .summary-item .label {
-                    font-size: 9px;
-                    text-transform: uppercase;
-                    color: #555;
-                    font-weight: bold;
-                    letter-spacing: 0.3px;
-                }
-                .summary-row .summary-item .value {
-                    font-size: 16px;
-                    font-weight: bold;
+                .shop-info .contact {
+                    font-size: 8.5px;
+                    color: #6b7280;
                     margin-top: 2px;
                 }
-                /* Individual item colors */
-                .summary-item.item-sales .value { color: #4f46e5; }
-                .summary-item.item-revenue .value { color: #059669; }
-                .summary-item.item-profit .value { color: #d97706; }
-                .summary-item.item-average .value { color: #0891b2; }
+                .shop-info .contact span {
+                    margin-right: 12px;
+                }
+                .report-meta {
+                    text-align: right;
+                    flex-shrink: 0;
+                }
+                .report-meta .title {
+                    font-size: 16px;
+                    font-weight: 700;
+                    color: #1f2937;
+                    letter-spacing: 1px;
+                    text-transform: uppercase;
+                }
+                .report-meta .subtitle {
+                    font-size: 8px;
+                    color: #6b7280;
+                    margin-top: 2px;
+                }
+                .report-meta .datetime {
+                    font-size: 8px;
+                    color: #9ca3af;
+                    margin-top: 1px;
+                }
+                .report-meta .page-info {
+                    font-size: 8px;
+                    color: #6b7280;
+                    margin-top: 3px;
+                    font-weight: 500;
+                    background: #f3f4f6;
+                    padding: 2px 10px;
+                    border-radius: 4px;
+                    display: inline-block;
+                }
                 
-                /* Table Styles */
+                /* Filter Badge */
+                .filter-badge {
+                    background: #f3f4f6;
+                    border: 1px solid #e5e7eb;
+                    border-radius: 6px;
+                    padding: 6px 12px;
+                    margin-bottom: 12px;
+                    text-align: center;
+                    font-size: 8.5px;
+                    color: #4b5563;
+                }
+                .filter-badge strong {
+                    color: #1f2937;
+                }
+                
+                /* Summary Grid */
+                .summary-grid {
+                    display: grid;
+                    grid-template-columns: repeat(4, 1fr);
+                    gap: 10px;
+                    margin-bottom: 15px;
+                }
+                .summary-card {
+                    background: #f9fafb;
+                    border: 1px solid #e5e7eb;
+                    border-radius: 8px;
+                    padding: 10px 14px;
+                    text-align: center;
+                }
+                .summary-card .label {
+                    font-size: 7.5px;
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                    color: #6b7280;
+                    font-weight: 600;
+                }
+                .summary-card .value {
+                    font-size: 18px;
+                    font-weight: 700;
+                    margin-top: 2px;
+                }
+                .summary-card .value-sales { color: #4f46e5; }
+                .summary-card .value-revenue { color: #059669; }
+                .summary-card .value-profit { color: #d97706; }
+                .summary-card .value-average { color: #0891b2; }
+                
+                /* Main Table */
+                .table-wrapper {
+                    border: 1px solid #e5e7eb;
+                    border-radius: 8px;
+                    overflow: hidden;
+                    margin-bottom: 12px;
+                }
                 table { 
                     width: 100%; 
                     border-collapse: collapse; 
-                    margin: 8px 0;
-                    font-size: 10px;
+                    font-size: 9px;
                 }
-                th, td { 
-                    padding: 4px 6px; 
-                    text-align: left; 
-                    border-bottom: 1px solid #ddd;
+                thead {
+                    background: #f3f4f6;
                 }
                 th { 
-                    background-color: #f0f0f0; 
-                    font-weight: bold; 
-                    font-size: 8px;
+                    padding: 8px 8px; 
+                    text-align: left; 
+                    font-weight: 600;
+                    font-size: 7px;
                     text-transform: uppercase;
-                    border-top: 2px solid #000;
-                    border-bottom: 2px solid #000;
+                    letter-spacing: 0.5px;
+                    color: #374151;
+                    border-bottom: 2px solid #d1d5db;
+                    white-space: nowrap;
                 }
-                .text-right { text-align: right; }
-                .status-paid { color: #059669; font-weight: bold; }
-                .status-partial { color: #d97706; font-weight: bold; }
-                .status-unpaid { color: #dc2626; font-weight: bold; }
+                th.text-center { text-align: center; }
+                th.text-right { text-align: right; }
                 
-                .footer { 
-                    text-align: center; 
-                    margin-top: 15px; 
-                    padding-top: 8px; 
-                    border-top: 2px solid #000;
-                    font-size: 9px;
-                    color: #555;
+                td { 
+                    padding: 6px 8px; 
+                    border-bottom: 1px solid #f3f4f6;
+                    vertical-align: middle;
                 }
+                td.text-center { text-align: center; }
+                td.text-right { text-align: right; }
+                
+                /* Status Badges */
+                .status-paid { 
+                    background: #d1fae5; 
+                    color: #065f46; 
+                    padding: 2px 10px; 
+                    border-radius: 12px; 
+                    font-weight: 600;
+                    font-size: 7.5px;
+                    display: inline-block;
+                }
+                .status-partial { 
+                    background: #fef3c7; 
+                    color: #92400e; 
+                    padding: 2px 10px; 
+                    border-radius: 12px; 
+                    font-weight: 600;
+                    font-size: 7.5px;
+                    display: inline-block;
+                }
+                .status-unpaid { 
+                    background: #fee2e2; 
+                    color: #991b1b; 
+                    padding: 2px 10px; 
+                    border-radius: 12px; 
+                    font-weight: 600;
+                    font-size: 7.5px;
+                    display: inline-block;
+                }
+                
+                /* Footer */
+                .footer-section {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    border-top: 2px solid #e5e7eb;
+                    padding-top: 10px;
+                    margin-top: 5px;
+                    font-size: 8px;
+                    color: #6b7280;
+                }
+                .footer-section .total-count {
+                    font-weight: 600;
+                    color: #1f2937;
+                }
+                .footer-section .generated {
+                    color: #9ca3af;
+                }
+                .footer-section .page-number {
+                    font-weight: 600;
+                    color: #4f46e5;
+                }
+                
+                /* Print optimization */
                 @media print {
-                    body { padding: 10px; }
+                    body { padding: 15px 20px; }
+                    .summary-card { break-inside: avoid; }
+                    tr { break-inside: avoid; }
+                    
+                    /* Add page number at bottom of each page */
+                    @page {
+                        @bottom-center {
+                            content: "Page " counter(page) " of ${totalPages}";
+                            font-size: 8px;
+                            color: #9ca3af;
+                        }
+                    }
+                }
+                
+                /* Zebra stripes for better readability */
+                tbody tr:nth-child(even) {
+                    background: #fafafa;
+                }
+                tbody tr:hover {
+                    background: #f3f4f6;
+                }
+                
+                /* Serial number column */
+                .serial-col {
+                    width: 40px;
+                    min-width: 40px;
                 }
             </style>
         </head>
         <body>
             <div class="report-container">
-                <!-- Shop Header -->
-                <div class="shop-header">
-                    <div class="shop-name">${shopName}</div>
-                    <div class="shop-details">
-                        <div>${shopAddress}</div>
-                        <div>
-                            <span>Phone: ${shopPhone}</span>
-                            <span>|</span>
-                            <span>Email: ${shopEmail}</span>
+                <!-- Header -->
+                <div class="header-section">
+                    <div class="shop-info">
+                        <h1>${shopName}</h1>
+                        <div class="address">${shopAddress}</div>
+                        <div class="contact">
+                            <span>📞 ${shopPhone}</span>
+                            <span>✉️ ${shopEmail}</span>
                         </div>
                     </div>
+                    <div class="report-meta">
+                        <div class="title">Sales Report</div>
+                        <div class="subtitle">${filterText}</div>
+                        <div class="datetime">${new Date().toLocaleString('en-US', { 
+                            year: 'numeric', 
+                            month: 'long', 
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        })}</div>
+                        <div class="page-info">Page ${currentPage.value} of ${totalPages}</div>
+                    </div>
                 </div>
-                
-                <!-- Report Title -->
-                <div class="text-center mb-5">
-                    <div class="report-title">SALES REPORT</div>
-                    <div style="font-size: 9px; color: #666;">Generated on: ${new Date().toLocaleString()}</div>
+
+                <!-- Filter Badge (if filters applied) -->
+                ${filterInfo.length > 0 ? `
+                <div class="filter-badge">
+                    <strong>📊 Filters Applied:</strong> ${filterInfo.join(' • ')}
                 </div>
-                
-                <!-- Filter Info -->
-                <div class="filter-info">${filterText}</div>
-                
-                <!-- Summary Row - One line with 4 columns -->
-                <div class="summary-row">
-                    <div class="summary-item item-sales">
+                ` : ''}
+
+                <!-- Summary Cards -->
+                <div class="summary-grid">
+                    <div class="summary-card">
                         <div class="label">Total Sales</div>
-                        <div class="value">${totalSalesCount}</div>
+                        <div class="value value-sales">${totalSalesCount}</div>
                     </div>
-                    <div class="summary-item item-revenue">
-                        <div class="label">Revenue</div>
-                        <div class="value">${totalRevenue}</div>
+                    <div class="summary-card">
+                        <div class="label">Total Revenue</div>
+                        <div class="value value-revenue">${totalRevenue}</div>
                     </div>
-                    <div class="summary-item item-profit">
-                        <div class="label">Profit</div>
-                        <div class="value">${totalProfitAmount}</div>
+                    <div class="summary-card">
+                        <div class="label">Total Profit</div>
+                        <div class="value value-profit">${totalProfitAmount}</div>
                     </div>
-                    <div class="summary-item item-average">
+                    <div class="summary-card">
                         <div class="label">Average Sale</div>
-                        <div class="value">${averageSaleAmount}</div>
+                        <div class="value value-average">${averageSaleAmount}</div>
                     </div>
                 </div>
-                
-                <!-- Report Content -->
-                ${printContent.innerHTML}
+
+                <!-- Sales Table -->
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th class="text-center serial-col">#</th>
+                                <th class="text-center">Invoice</th>
+                                <th class="text-center">Date</th>
+                                <th>Customer</th>
+                                <th class="text-center">Type</th>
+                                <th class="text-right">Amount</th>
+                                <th class="text-right">Paid</th>
+                                <th class="text-right">Due</th>
+                                <th class="text-center">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${tableRows}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Footer -->
+                <div class="footer-section">
+                    <div>
+                        Showing <span class="total-count">${salesData.length}</span> 
+                        ${salesData.length !== filteredSales.value.length ? `of ${filteredSales.value.length} filtered` : ''} 
+                        sales
+                        ${salesData.length > 0 && salesData.length !== filteredSales.value.length ? `(Page ${currentPage.value} of ${totalPages})` : ''}
+                    </div>
+                    <div>
+                        <span class="page-number">Page ${currentPage.value} of ${totalPages}</span>
+                    </div>
+                    <div class="generated">
+                        Generated on ${new Date().toLocaleString()}
+                    </div>
+                </div>
             </div>
             <script>
                 window.onload = function() {
@@ -427,52 +622,52 @@ onMounted(() => {
     <AuthenticatedLayout>
         <Head title="Sales Report" />
         
-        <div class="min-h-screen bg-gray-50 p-4">
+        <div class="min-h-screen w-full bg-gray-50 p-4">
             <div class="max-w-7xl mx-auto">
-                <!-- Company Header (only visible on screen) -->
-                <div class="bg-gradient-to-r from-indigo-600 to-indigo-700 rounded-xl shadow-lg p-5 mb-4 text-white print:hidden">
+                <!-- Company Header (only on screen) -->
+                <div class="bg-gradient-to-r from-indigo-600 to-indigo-700 rounded-xl shadow-lg p-4 mb-4 text-white print:hidden">
                     <div class="flex justify-between items-center">
                         <div>
-                            <h1 class="text-2xl font-bold">{{ shop?.name || 'Your Shop' }}</h1>
-                            <p class="text-indigo-100 text-sm mt-1">{{ shop?.address || 'Shop Address' }}</p>
-                            <div class="flex gap-4 mt-2 text-sm text-indigo-100">
+                            <h1 class="text-xl font-bold">{{ shop?.name || 'Your Shop' }}</h1>
+                            <p class="text-indigo-100 text-xs mt-1">{{ shop?.address || 'Shop Address' }}</p>
+                            <div class="flex gap-3 mt-1 text-xs text-indigo-100">
                                 <span><i class="fas fa-phone mr-1"></i> {{ shop?.phone || 'Phone Number' }}</span>
                                 <span><i class="fas fa-envelope mr-1"></i> {{ shop?.email || 'Email Address' }}</span>
                             </div>
                         </div>
                         <div class="text-right">
-                            <div class="text-sm text-indigo-100">Report Generated</div>
+                            <div class="text-xs text-indigo-100">Report Generated</div>
                             <div class="text-lg font-bold">{{ new Date().toLocaleDateString() }}</div>
-                            <div class="text-xs text-indigo-100">{{ new Date().toLocaleTimeString() }}</div>
+                            <div class="text-[10px] text-indigo-100">{{ new Date().toLocaleTimeString() }}</div>
                         </div>
                     </div>
                 </div>
 
                 <!-- Smart Filter Bar -->
-                <div class="bg-white rounded-xl shadow-sm p-3 mb-4 print:hidden">
-                    <div class="flex flex-wrap items-center gap-2">
+                <div class="bg-white rounded-xl shadow-sm p-2 mb-4 print:hidden">
+                    <div class="flex flex-wrap items-center gap-1.5">
                         <div class="flex items-center gap-1">
-                            <i class="fas fa-calendar text-gray-400 text-xs"></i>
+                            <i class="fas fa-calendar text-gray-400 text-[10px]"></i>
                             <input
                                 v-model="filters.start_date"
                                 type="date"
-                                class="border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 w-32"
+                                class="border border-gray-300 rounded-lg px-1.5 py-1 text-[10px] focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 w-28"
                             />
-                            <span class="text-xs text-gray-400">to</span>
+                            <span class="text-[10px] text-gray-400">to</span>
                             <input
                                 v-model="filters.end_date"
                                 type="date"
-                                class="border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 w-32"
+                                class="border border-gray-300 rounded-lg px-1.5 py-1 text-[10px] focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 w-28"
                             />
                         </div>
 
-                        <div class="w-px h-6 bg-gray-300"></div>
+                        <div class="w-px h-5 bg-gray-300"></div>
 
                         <div class="flex items-center gap-1">
-                            <i class="fas fa-credit-card text-gray-400 text-xs"></i>
+                            <i class="fas fa-credit-card text-gray-400 text-[10px]"></i>
                             <select
                                 v-model="filters.payment_method"
-                                class="border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                class="border border-gray-300 rounded-lg px-1.5 py-1 text-[10px] focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                             >
                                 <option value="all">All Payments</option>
                                 <option value="cash">Cash</option>
@@ -482,13 +677,13 @@ onMounted(() => {
                             </select>
                         </div>
 
-                        <div class="w-px h-6 bg-gray-300"></div>
+                        <div class="w-px h-5 bg-gray-300"></div>
 
                         <div class="flex items-center gap-1">
-                            <i class="fas fa-tag text-gray-400 text-xs"></i>
+                            <i class="fas fa-tag text-gray-400 text-[10px]"></i>
                             <select
                                 v-model="filters.sale_type"
-                                class="border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                class="border border-gray-300 rounded-lg px-1.5 py-1 text-[10px] focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                             >
                                 <option value="all">All Types</option>
                                 <option value="retail">Retail</option>
@@ -496,51 +691,102 @@ onMounted(() => {
                             </select>
                         </div>
 
-                        <div class="w-px h-6 bg-gray-300"></div>
+                        <div class="w-px h-5 bg-gray-300"></div>
 
-                        <div class="flex-1 min-w-[150px] relative">
-                            <i class="fas fa-search absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
+                        <div class="flex-1 min-w-[120px] relative">
+                            <i class="fas fa-search absolute left-1.5 top-1/2 -translate-y-1/2 text-gray-400 text-[10px]"></i>
                             <input
                                 v-model="filters.search"
                                 type="text"
                                 placeholder="Search invoice, customer..."
-                                class="w-full border border-gray-300 rounded-lg pl-7 pr-3 py-1.5 text-xs focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                class="w-full border border-gray-300 rounded-lg pl-6 pr-2 py-1 text-[10px] focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                             />
                         </div>
 
                         <button
                             @click="applyFilters"
                             :disabled="isFiltering"
-                            class="bg-indigo-600 text-white px-3 py-1.5 rounded-lg hover:bg-indigo-700 transition text-xs flex items-center gap-1 disabled:opacity-50"
+                            class="bg-indigo-600 text-white px-2 py-1 rounded-lg hover:bg-indigo-700 transition text-[10px] flex items-center gap-1 disabled:opacity-50"
                         >
-                            <i v-if="isFiltering" class="fas fa-spinner fa-spin text-xs"></i>
-                            <i v-else class="fas fa-filter text-xs"></i>
+                            <i v-if="isFiltering" class="fas fa-spinner fa-spin text-[10px]"></i>
+                            <i v-else class="fas fa-filter text-[10px]"></i>
                             {{ isFiltering ? 'Loading...' : 'Apply' }}
                         </button>
                         <button
                             @click="resetFilters"
-                            class="bg-gray-200 text-gray-700 px-2 py-1.5 rounded-lg hover:bg-gray-300 transition text-xs"
+                            class="bg-gray-200 text-gray-700 px-1.5 py-1 rounded-lg hover:bg-gray-300 transition text-[10px]"
                             title="Reset filters"
                         >
                             <i class="fas fa-undo"></i>
                         </button>
                         <button
                             @click="printReport"
-                            class="bg-emerald-600 text-white px-3 py-1.5 rounded-lg hover:bg-emerald-700 transition text-xs flex items-center gap-1"
+                            class="bg-emerald-600 text-white px-2 py-1 rounded-lg hover:bg-emerald-700 transition text-[10px] flex items-center gap-1"
                         >
-                            <i class="fas fa-print text-xs"></i> Print
+                            <i class="fas fa-print text-[10px]"></i> Print
                         </button>
                         <button
                             @click="exportReport"
-                            class="bg-amber-600 text-white px-3 py-1.5 rounded-lg hover:bg-amber-700 transition text-xs flex items-center gap-1"
+                            class="bg-amber-600 text-white px-2 py-1 rounded-lg hover:bg-amber-700 transition text-[10px] flex items-center gap-1"
                         >
-                            <i class="fas fa-file-export text-xs"></i> Export
+                            <i class="fas fa-file-export text-[10px]"></i> Export
                         </button>
                     </div>
                 </div>
 
                 <!-- Report Content - This will be printed -->
                 <div id="report-print-content">
+                    <!-- Summary Cards (Screen only - print uses different layout) -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4 print:hidden">
+                        <div class="bg-white rounded-xl shadow-sm p-4 border-l-4 border-indigo-500">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wider">Total Sales</p>
+                                    <p class="text-2xl font-bold text-gray-800 mt-1">{{ summary.total_sales }}</p>
+                                </div>
+                                <div class="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center">
+                                    <i class="fas fa-shopping-cart text-indigo-600 text-xl"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-white rounded-xl shadow-sm p-4 border-l-4 border-emerald-500">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wider">Revenue</p>
+                                    <p class="text-2xl font-bold text-gray-800 mt-1">{{ formatCurrency(summary.total_amount) }}</p>
+                                </div>
+                                <div class="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center">
+                                    <i class="fas fa-dollar-sign text-emerald-600 text-xl"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-white rounded-xl shadow-sm p-4 border-l-4 border-amber-500">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wider">Profit</p>
+                                    <p class="text-2xl font-bold text-gray-800 mt-1">{{ formatCurrency(summary.total_profit) }}</p>
+                                </div>
+                                <div class="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center">
+                                    <i class="fas fa-coins text-amber-600 text-xl"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-white rounded-xl shadow-sm p-4 border-l-4 border-cyan-500">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wider">Average Sale</p>
+                                    <p class="text-2xl font-bold text-gray-800 mt-1">{{ formatCurrency(summary.average_sale) }}</p>
+                                </div>
+                                <div class="w-12 h-12 bg-cyan-100 rounded-full flex items-center justify-center">
+                                    <i class="fas fa-chart-line text-cyan-600 text-xl"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Sales Table -->
                     <div class="bg-white rounded-xl shadow-sm overflow-hidden">
                         <div class="overflow-x-auto">

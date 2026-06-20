@@ -7,6 +7,7 @@ use App\Models\Sale;
 use App\Models\SaleDetail;
 use App\Models\Product;
 use App\Models\Shop;
+use App\Models\Payment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -58,6 +59,17 @@ class PosController extends Controller
             $shopId = $user->shop_id ?? 1;
             $invoiceNo = $this->generateInvoiceNumber($shopId);
 
+            // Calculate total profit
+            $totalProfit = 0;
+            foreach ($request->items as $item) {
+                $product = Product::find($item['product_id']);
+                if ($product) {
+                    $costPrice = $product->purchase_price ?? 0;
+                    $profit = ($item['unit_price'] - $costPrice) * $item['quantity'];
+                    $totalProfit += $profit;
+                }
+            }
+
             // Create sale
             $sale = Sale::create([
                 'shop_id' => $shopId,
@@ -77,6 +89,7 @@ class PosController extends Controller
                 'payment_method' => $request->payment_method,
                 'payment_status' => $request->payment_status,
                 'notes' => $request->notes,
+                'profit' => $totalProfit,
             ]);
 
             // Create sale details and update stock
@@ -96,9 +109,40 @@ class PosController extends Controller
                 }
             }
 
+            // ==========================================
+            // PAYMENT TABLE এ ডেটা স্টোর করুন
+            // ==========================================
+            if ($request->paid_amount > 0) {
+                // Payment method mapping (credit -> bank_transfer for payments table)
+                $paymentMethod = $request->payment_method;
+                if ($paymentMethod === 'credit') {
+                    $paymentMethod = 'bank_transfer';
+                }
+
+                Payment::create([
+                    'shop_id' => $shopId,
+                    'sale_id' => $sale->id,
+                    'payable_id' => $sale->id,
+                    'payable_type' => 'App\Models\Sale',
+                    'user_id' => $user->id,
+                    'amount' => $request->paid_amount,
+                    'payment_method' => $paymentMethod,
+                    'transaction_id' => null,
+                    'payment_date' => $request->sale_date,
+                    'notes' => 'Initial payment for sale ' . $invoiceNo,
+                ]);
+
+                // If partial payment, create a due entry (optional - for tracking)
+                if ($request->due_amount > 0) {
+                    // You can add a separate due tracking if needed
+                }
+            }
+
+            // If there is due amount, we still create a payment record for the paid amount
+            // If paid_amount is 0, no payment record is created (unpaid)
+
             DB::commit();
 
-            // সরাসরি Invoice পেজে রিডাইরেক্ট
             return redirect()->route('pos.invoice', $sale->id);
 
         } catch (\Exception $e) {
@@ -109,10 +153,9 @@ class PosController extends Controller
 
     public function showInvoice($id)
     {
-        $sale = Sale::with(['customer', 'details.product', 'user'])
+        $sale = Sale::with(['customer', 'details.product', 'user', 'payments'])
             ->findOrFail($id);
 
-        // Get shop info from the sale's shop
         $shop = Shop::find($sale->shop_id);
 
         return Inertia::render('Pos/Invoice', [

@@ -128,7 +128,7 @@ const isRouteActive = (patterns) => {
         
         
         <li>
-          <NavLink :href="route('pos.report')" :active="isRouteActive(['pos.report'])"
+          <NavLink :href="route('report.unified')" :active="isRouteActive(['report.unified'])"
             class="flex items-center p-3 rounded-lg hover:bg-gray-50 transition-colors"
             :class="isCollapsed ? 'justify-center px-2' : 'px-3'">
             <div class="flex items-center">
@@ -139,7 +139,7 @@ const isRouteActive = (patterns) => {
         </li>
         
         <li>
-          <NavLink
+          <NavLink :href="route('shop.edit', $page.props.auth.user.shop_id)" :active="isRouteActive(['shop', 'shop.*'])"
             class="flex items-center p-3 rounded-lg hover:bg-gray-50 transition-colors"
             :class="isCollapsed ? 'justify-center px-2' : 'px-3'">
             <div class="flex items-center">
