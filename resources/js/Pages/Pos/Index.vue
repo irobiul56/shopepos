@@ -490,7 +490,7 @@ onMounted(() => {
                                             </div>
                                         </td>
                                         <td>{{ item.sku }}</td>
-                                        <td>${{ Number(item.selling_price).toFixed(2) }}</td>
+                                        <td>Tk {{ Number(item.selling_price).toFixed(2) }}</td>
                                         <td>
                                             <span class="badge-pill" :class="(item.stock_quantity || 0) > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'">
                                                 {{ item.stock_quantity || 0 }}
@@ -579,7 +579,7 @@ onMounted(() => {
                                         </button>
                                     </div>
                                 </div>
-                                <div class="font-bold text-sm">${{ ((item.price || 0) * (item.qnt || 0)).toFixed(2) }}</div>
+                                <div class="font-bold text-sm">Tk {{ ((item.price || 0) * (item.qnt || 0)).toFixed(2) }}</div>
                             </div>
                             <div v-if="cart.length === 0" class="text-center py-4 text-slate-400 text-sm">
                                 <i class="fas fa-shopping-bag text-2xl block mb-1"></i>
@@ -588,7 +588,7 @@ onMounted(() => {
                         </div>
                         <div class="border-t border-slate-200 pt-1.5 mt-1.5 flex justify-between text-sm font-medium">
                             <span>Subtotal</span>
-                            <span class="text-indigo-700">${{ subTotal.toFixed(2) }}</span>
+                            <span class="text-indigo-700">Tk{{ subTotal.toFixed(2) }}</span>
                         </div>
                     </div>
 
@@ -671,7 +671,7 @@ onMounted(() => {
                                         v-model="discountType"
                                         class="w-full border border-slate-200 rounded-lg compact-select bg-slate-50/80"
                                     >
-                                        <option value="fixed">Fixed ($)</option>
+                                        <option value="fixed">Fixed (Tk)</option>
                                         <option value="percentage">%</option>
                                     </select>
                                 </div>
@@ -744,27 +744,27 @@ onMounted(() => {
                                 <div class="space-y-0.5 text-sm bg-slate-50/80 p-2 rounded-lg">
                                     <div class="flex justify-between">
                                         <span class="text-slate-500">Subtotal</span>
-                                        <span>${{ subTotal.toFixed(2) }}</span>
+                                        <span>Tk{{ subTotal.toFixed(2) }}</span>
                                     </div>
                                     <div class="flex justify-between text-rose-500">
                                         <span>Discount</span>
-                                        <span>-${{ discountAmount.toFixed(2) }}</span>
+                                        <span>-Tk{{ discountAmount.toFixed(2) }}</span>
                                     </div>
                                     <div class="flex justify-between">
                                         <span class="text-slate-500">Tax</span>
-                                        <span>${{ tax.toFixed(2) }}</span>
+                                        <span>Tk{{ tax.toFixed(2) }}</span>
                                     </div>
                                     <div class="flex justify-between">
                                         <span class="text-slate-500">Shipping</span>
-                                        <span>${{ Number(shippingCost).toFixed(2) }}</span>
+                                        <span>Tk{{ Number(shippingCost).toFixed(2) }}</span>
                                     </div>
                                     <div class="flex justify-between font-bold text-base pt-0.5 border-t border-slate-200">
                                         <span>Total</span>
-                                        <span class="text-indigo-700">${{ totalAmount.toFixed(2) }}</span>
+                                        <span class="text-indigo-700">Tk{{ totalAmount.toFixed(2) }}</span>
                                     </div>
                                     <div v-if="dueAmount > 0" class="flex justify-between text-amber-600 font-bold">
                                         <span>Due</span>
-                                        <span>${{ dueAmount.toFixed(2) }}</span>
+                                        <span>Tk{{ dueAmount.toFixed(2) }}</span>
                                     </div>
                                     <div class="flex justify-between text-xs text-slate-500">
                                         <span>Payment Status</span>

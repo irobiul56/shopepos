@@ -293,7 +293,7 @@ const getPaymentMethodInfo = (method) => {
             {{ message.text }}
         </div>
         
-        <div class="min-h-screen bg-gray-50 p-4">
+        <div class="min-h-screen w-full bg-gray-50 p-4">
             <div class="max-w-7xl mx-auto">
                 <!-- Header -->
                 <div class="flex justify-between items-center mb-6">
